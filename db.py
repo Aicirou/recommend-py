@@ -45,14 +45,21 @@ def upsert_movie(
     source: Optional[str] = None,
     db_path: str = DB_PATH,
 ) -> None:
-    """Insert a movie or update it if (title, source) already exists.
+    """Insert a movie or update it if a row with the same (title, source) exists.
+
+    Uses a ``UNIQUE(title, source)`` constraint with ``ON CONFLICT DO UPDATE``.
+    Note: SQLite does not consider two NULL values equal under UNIQUE, so if
+    ``source=None`` is passed, each call inserts a new row rather than updating
+    an existing one.  Always provide a non-None ``source`` for true upsert
+    semantics.
 
     Args:
         title:   Movie title.
         genre:   Comma-separated genre string (e.g. "Action, Drama").
         rating:  Numeric rating (0-10 scale).
         length:  Runtime in minutes.
-        source:  Origin of the entry, e.g. "google" or "imdb".
+        source:  Origin of the entry, e.g. "google" or "imdb".  Pass a
+                 non-None value to guarantee idempotent upsert behavior.
         db_path: Path to the SQLite database file.
     """
     conn = get_connection(db_path)
@@ -75,7 +82,7 @@ def get_all_movies(db_path: str = DB_PATH) -> list[dict]:
     """Return every movie in the database as a list of dicts."""
     conn = get_connection(db_path)
     rows = conn.execute(
-        "SELECT id, title, genre, rating, length, source FROM movies ORDER BY title"
+        "SELECT id, title, genre, rating, length, source FROM movies ORDER BY title ASC, id ASC"
     ).fetchall()
     conn.close()
     return [dict(row) for row in rows]

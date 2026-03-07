@@ -302,19 +302,20 @@ async def run_scraper(
         }
 
         browser = None
-        if user_data_dir:
-            # persistent_context keeps cookies/local-storage from your profile
-            context: BrowserContext = await browser_launcher.launch_persistent_context(
-                user_data_dir,
-                **launch_kwargs,
-            )
-            page = await context.new_page()
-        else:
-            browser = await browser_launcher.launch(**launch_kwargs)
-            context = await browser.new_context()
+        context = None
+        try:
+            if user_data_dir:
+                # persistent_context keeps cookies/local-storage from your profile
+                context = await browser_launcher.launch_persistent_context(
+                    user_data_dir,
+                    **launch_kwargs,
+                )
+            else:
+                browser = await browser_launcher.launch(**launch_kwargs)
+                context = await browser.new_context()
+
             page = await context.new_page()
 
-        try:
             if scrape_google:
                 print("[Google] Scraping watchlist …")
                 google_movies = await _scrape_google_watchlist(page)
@@ -327,7 +328,8 @@ async def run_scraper(
                 print(f"[IMDb] Found {len(imdb_movies)} items.")
                 all_movies.extend(imdb_movies)
         finally:
-            await context.close()
+            if context is not None:
+                await context.close()
             if browser is not None:
                 await browser.close()
 
