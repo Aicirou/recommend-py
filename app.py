@@ -9,6 +9,8 @@ Run with:
     streamlit run app.py
 """
 
+import os
+
 import streamlit as st
 import pandas as pd
 from db import init_db, get_all_movies, filter_movies, delete_movie
@@ -24,7 +26,10 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-DB_PATH = "watchlist.db"
+# Allow users to point the app at a custom database file via the environment
+# variable WATCHLIST_DB (e.g. `WATCHLIST_DB=my_movies.db streamlit run app.py`).
+# Falls back to "watchlist.db" when the variable is not set.
+DB_PATH = os.environ.get("WATCHLIST_DB", "watchlist.db")
 init_db(DB_PATH)
 
 # ---------------------------------------------------------------------------

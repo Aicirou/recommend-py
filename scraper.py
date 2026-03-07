@@ -8,7 +8,7 @@ import asyncio
 import re
 from typing import Optional
 
-from playwright.async_api import async_playwright, BrowserContext, Page
+from playwright.async_api import async_playwright, Page
 
 from db import upsert_movie, init_db
 

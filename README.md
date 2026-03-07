@@ -122,6 +122,14 @@ streamlit run app.py
 
 Open [http://localhost:8501](http://localhost:8501) in your browser.
 
+By default the app reads from `watchlist.db` in the current directory.  If you scraped into a custom file with `--db`, point the app at it with the `WATCHLIST_DB` environment variable:
+
+```bash
+WATCHLIST_DB=my_movies.db streamlit run app.py
+# Windows PowerShell
+$env:WATCHLIST_DB="my_movies.db"; streamlit run app.py
+```
+
 ### Page 1 – My Watchlist
 
 - Displays all synced movies in a searchable table.
