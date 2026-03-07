@@ -120,11 +120,23 @@ def page_watchlist() -> None:
 
     # --- Delete a movie ---
     with st.expander("🗑️ Remove a movie from the database"):
-        movie_titles = {m["title"]: m["id"] for m in movies}
-        selected_title = st.selectbox("Select movie to remove", options=list(movie_titles.keys()))
+        movies_by_id = {m["id"]: m for m in movies}
+
+        def _format_movie_option(movie_id: int) -> str:
+            movie = movies_by_id.get(movie_id, {})
+            title = movie.get("title") or "Unknown title"
+            source = movie.get("source")
+            return f"{title} [{source}]" if source else title
+
+        selected_movie_id = st.selectbox(
+            "Select movie to remove",
+            options=list(movies_by_id.keys()),
+            format_func=_format_movie_option,
+        )
         if st.button("Delete selected movie", type="primary"):
-            delete_movie(movie_titles[selected_title], DB_PATH)
-            st.success(f"'{selected_title}' has been removed.")
+            removed_title = movies_by_id.get(selected_movie_id, {}).get("title") or "Selected movie"
+            delete_movie(selected_movie_id, DB_PATH)
+            st.success(f"'{removed_title}' has been removed.")
             st.rerun()
 
 

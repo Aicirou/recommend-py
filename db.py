@@ -99,14 +99,16 @@ def filter_movies(
         db_path:    Path to the SQLite database file.
 
     Returns:
-        List of matching movie dicts sorted by rating descending.
+        List of matching movie dicts sorted by rating descending, then title
+        and id for deterministic ordering. Movies without a rating are excluded;
+        only movies whose rating falls within [min_rating, max_rating] are returned.
     """
     conn = get_connection(db_path)
 
     query = """
         SELECT id, title, genre, rating, length, source
         FROM movies
-        WHERE (rating IS NULL OR (rating >= ? AND rating <= ?))
+        WHERE rating >= ? AND rating <= ?
     """
     params: list = [min_rating, max_rating]
 
@@ -114,7 +116,7 @@ def filter_movies(
         query += " AND (length IS NULL OR length <= ?)"
         params.append(max_length)
 
-    query += " ORDER BY rating DESC"
+    query += " ORDER BY rating DESC, title ASC, id ASC"
 
     rows = conn.execute(query, params).fetchall()
     conn.close()

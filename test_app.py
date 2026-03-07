@@ -5,8 +5,6 @@ Run with:
     pytest test_app.py -v
 """
 
-import os
-import tempfile
 import pytest
 
 from db import init_db, upsert_movie, get_all_movies, filter_movies, delete_movie
@@ -160,13 +158,12 @@ class TestUpsertMovie:
         assert movies[0]["rating"] is None
 
     def test_insert_null_source(self, tmp_db):
-        """source=None still inserts successfully (treated as a unique key)."""
+        """source=None inserts two rows because SQLite treats NULL != NULL for UNIQUE."""
         upsert_movie("Film A", source=None, db_path=tmp_db)
         upsert_movie("Film A", source=None, db_path=tmp_db)
-        # SQLite treats NULL != NULL for UNIQUE, so two rows are inserted
-        # This is acceptable behaviour – document it.
+        # SQLite UNIQUE constraint does not consider two NULLs equal, so both rows insert.
         movies = get_all_movies(tmp_db)
-        assert len(movies) >= 1
+        assert len(movies) == 2
 
 
 # ---------------------------------------------------------------------------
@@ -201,26 +198,26 @@ class TestGetAllMovies:
 
 
 class TestFilterMovies:
-    def test_no_filters_returns_all(self, populated_db):
+    def test_no_filters_returns_all_rated(self, populated_db):
         all_movies = get_all_movies(populated_db)
+        rated_count = sum(1 for m in all_movies if m["rating"] is not None)
         filtered = filter_movies(db_path=populated_db)
-        assert len(filtered) == len(all_movies)
+        assert len(filtered) == rated_count
 
     def test_min_rating_filter(self, populated_db):
         results = filter_movies(min_rating=8.7, db_path=populated_db)
         for m in results:
-            assert m["rating"] is None or m["rating"] >= 8.7
+            assert m["rating"] >= 8.7
 
     def test_max_rating_filter(self, populated_db):
         results = filter_movies(max_rating=8.2, db_path=populated_db)
         for m in results:
-            assert m["rating"] is None or m["rating"] <= 8.2
+            assert m["rating"] <= 8.2
 
     def test_rating_range_filter(self, populated_db):
         results = filter_movies(min_rating=8.5, max_rating=8.9, db_path=populated_db)
         for m in results:
-            if m["rating"] is not None:
-                assert 8.5 <= m["rating"] <= 8.9
+            assert 8.5 <= m["rating"] <= 8.9
 
     def test_max_length_filter(self, populated_db):
         results = filter_movies(max_length=130, db_path=populated_db)
@@ -245,10 +242,11 @@ class TestFilterMovies:
         mixed = filter_movies(genres=["Sci-Fi"], db_path=populated_db)
         assert len(lower) == len(upper) == len(mixed)
 
-    def test_empty_genre_list_returns_all(self, populated_db):
+    def test_empty_genre_list_returns_all_rated(self, populated_db):
         all_movies = get_all_movies(populated_db)
+        rated_count = sum(1 for m in all_movies if m["rating"] is not None)
         filtered = filter_movies(genres=[], db_path=populated_db)
-        assert len(filtered) == len(all_movies)
+        assert len(filtered) == rated_count
 
     def test_results_sorted_by_rating_desc(self, populated_db):
         results = filter_movies(db_path=populated_db)
@@ -264,7 +262,7 @@ class TestFilterMovies:
         )
         for m in results:
             assert "drama" in (m.get("genre") or "").lower()
-            assert m["rating"] is None or m["rating"] >= 8.5
+            assert m["rating"] >= 8.5
             assert m["length"] is None or m["length"] <= 150
 
     def test_no_matches_returns_empty_list(self, populated_db):
@@ -277,11 +275,11 @@ class TestFilterMovies:
         top3 = results[:3]
         assert len(top3) <= 3
 
-    def test_movies_with_no_rating_included(self, populated_db):
-        """Movies with NULL rating should still appear when no rating filter applied."""
+    def test_movies_with_no_rating_excluded(self, populated_db):
+        """Movies with NULL rating must not appear in filter_movies results."""
         results = filter_movies(db_path=populated_db)
         null_rating_movies = [m for m in results if m["rating"] is None]
-        assert len(null_rating_movies) >= 1
+        assert null_rating_movies == []
 
 
 # ---------------------------------------------------------------------------

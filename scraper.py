@@ -28,7 +28,7 @@ _RE_LIST_NUM = re.compile(r"^\d+\.\s*")
 # Helper utilities
 # ---------------------------------------------------------------------------
 
-def _parse_runtime(text: str) -> Optional[int]:
+def _parse_runtime(text: Optional[str]) -> Optional[int]:
     """Convert a human-readable runtime string to total minutes.
 
     Handles formats such as:
@@ -60,7 +60,7 @@ def _parse_runtime(text: str) -> Optional[int]:
     return None
 
 
-def _parse_rating(text: str) -> Optional[float]:
+def _parse_rating(text: Optional[str]) -> Optional[float]:
     """Extract a numeric rating from a string like '7.5/10' or '7.5'."""
     if not text:
         return None
@@ -79,8 +79,8 @@ async def _scrape_google_watchlist(
     """Scrape titles from the Google 'Want to watch' knowledge panel.
 
     Google shows a limited carousel of items from your watchlist when you
-    search for "my watchlist" while logged in.  We scroll and collect as
-    many cards as the page exposes.
+    search for "my watchlist" while logged in.  After waiting for dynamic
+    content to settle, we query the DOM once for all visible carousel cards.
 
     Returns a list of dicts with keys: title, genre, rating, length, source.
     """
@@ -298,9 +298,10 @@ async def run_scraper(
 
         launch_kwargs: dict = {
             "headless": headless,
-            "args": ["--no-sandbox", "--disable-blink-features=AutomationControlled"],
+            "args": ["--disable-blink-features=AutomationControlled"],
         }
 
+        browser = None
         if user_data_dir:
             # persistent_context keeps cookies/local-storage from your profile
             context: BrowserContext = await browser_launcher.launch_persistent_context(
@@ -327,6 +328,8 @@ async def run_scraper(
                 all_movies.extend(imdb_movies)
         finally:
             await context.close()
+            if browser is not None:
+                await browser.close()
 
     # Persist to database (upsert to avoid duplicates)
     for movie in all_movies:
